@@ -439,7 +439,7 @@ export function SumColumns({
     }
     const current = dragRef.current;
     if (!current) return;
-    const moved = { ...current, x: event.clientX, y: event.clientY, over: null };
+    const moved: DragCube = { ...current, x: event.clientX, y: event.clientY, over: null };
     moved.over = columnUnderCube(moved);
     dragRef.current = moved;
     setDrag(moved);

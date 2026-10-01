@@ -16,7 +16,7 @@ import { BossIntroScreen } from './ui/BossIntroScreen';
 import { AjustesModal } from './ui/AjustesModal';
 import { CoinIcon } from './ui/CoinIcon';
 import { WildTutorial } from './ui/WildTutorial';
-import { bossAfterPhase, BOSSES, type BossData } from './game/boss';
+import { bossAfterPhase, type BossData } from './game/boss';
 import { audio, MUSIC_TRACKS, ONBOARDING_TRACK } from './audio/engine';
 import type { MusicTrack, MusicMood } from './audio/engine';
 import type { LevelConfig, GeneratedLevel } from './core/generator';
@@ -284,7 +284,7 @@ export function App() {
   const [bossActive, setBossActive] = useState(false);
   const [showAjustes, setShowAjustes] = useState(false);
   const [transitioning, setTransitioning] = useState(false);
-  const [journeyMode, setJourneyMode] = useState<JourneyMode>('balanced');
+  const [journeyMode] = useState<JourneyMode>('balanced');
   const [hasSavedSession, setHasSavedSession] = useState(false);
   const [toast, setToast] = useState<{ msg: string; id: number } | null>(null);
   // Visual pulse triggered by the Hint button when there are no moves (points to the way out).
@@ -868,13 +868,6 @@ export function App() {
   };
 
   const startJourney = () => {
-    beginCubeGame();
-  };
-
-  const startJourneyWithMode = (jMode: JourneyMode) => {
-    setJourneyMode(jMode);
-    journeyModeRef.current = jMode;
-    savePrefs({ ...loadPrefs(), journeyMode: jMode });
     beginCubeGame();
   };
 
