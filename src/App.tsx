@@ -8,7 +8,7 @@ import { cloneState } from './core/engine';
 import { solverClient } from './core/worker/client';
 import { levelConfig, diffLabel, starsFor } from './game/levels';
 import { MODES, type JourneyMode } from './game/modes';
-import { loadWallet, saveWallet, rewardFor, activeBg, activeTube, bgBackdrop, TUBE_COIN_PRICE, FREE_UNDOS, UNDO_COIN_PRICE, type Wallet, type ShopItem } from './game/economy';
+import { loadWallet, saveWallet, rewardFor, coinsForLevel, activeBg, activeTube, bgBackdrop, TUBE_COIN_PRICE, FREE_UNDOS, UNDO_COIN_PRICE, type Wallet, type ShopItem } from './game/economy';
 import { TUBE_SHAPE_SPECS } from './render/geometry';
 import { loadProgress, saveProgress, loadDaily, saveDaily, loadSession, saveSession, clearSession, loadPrefs, savePrefs, type DailyRecord, type GameSession } from './game/settings';
 import { ShopModal } from './ui/ShopModal';
@@ -309,6 +309,7 @@ export function App() {
   const [freeUndos, setFreeUndos] = useState(FREE_UNDOS);
   const [undoAd, setUndoAd] = useState(false);
   const [boardKey, setBoardKey] = useState(0);
+  const [resetKey, setResetKey] = useState(0);
   const sumUndoRef = useRef<(() => void) | null>(null);
   const addColumnRef = useRef<(() => boolean) | null>(null);
   const shortAdRef = useRef(false);
@@ -648,7 +649,7 @@ export function App() {
         saveProgress(next);
         setJourneyPhase(next);
       }
-      const reward = 10;
+      const reward = coinsForLevel(phase + 1, LEVEL_COUNT);
       const newWallet = { ...wallet, coins: wallet.coins + reward };
       saveWallet(newWallet);
       setWallet(newWallet);
@@ -831,7 +832,7 @@ export function App() {
     tubesLeftRef.current = 2;
     setTubesLeft(2);
     setFreeUndos(FREE_UNDOS);
-    setBoardKey((key) => key + 1);
+    setResetKey((key) => key + 1);
   };
 
   const nextColumns = () => {
@@ -914,7 +915,7 @@ export function App() {
   };
 
   const skipPhase = () => {
-    if (!import.meta.env.DEV) return;
+    if (!import.meta.env.DEV || Capacitor.isNativePlatform()) return;
     if (cubeActiveRef.current) {
       nextColumns();
       return;
@@ -1133,6 +1134,7 @@ export function App() {
         <SumColumns
           key={`${phase}-${boardKey}`}
           level={phase}
+          resetKey={resetKey}
           undoRef={sumUndoRef}
           addColumnRef={addColumnRef}
           onMove={onColumnMove}
@@ -1303,7 +1305,7 @@ export function App() {
                 )}
               </ActionButton>
               <ActionButton onClick={restart} pulse={hintNudge.includes('restart')}>{t.common.reiniciar}</ActionButton>
-              {import.meta.env.DEV && mode === 'journey' && !won && (
+              {import.meta.env.DEV && !Capacitor.isNativePlatform() && mode === 'journey' && !won && (
                 <ActionButton onClick={skipPhase}>{t.hud.pular}</ActionButton>
               )}
             </div>
@@ -1408,12 +1410,6 @@ export function App() {
             <div className="text-sm text-slate-400">
               {t.common.jogadas(moves)}{optimalMoves > 0 && !isBoss && ` · ${t.hud.otimoInline(optimalMoves)}`}
             </div>
-
-            {wonCoins > 0 && (
-              <div className="rounded-lg bg-amber-400/10 px-3 py-1 text-sm font-medium text-amber-400">
-                + {t.common.moedas(wonCoins)}
-              </div>
-            )}
 
             <div className="flex items-center gap-3">
               <button
@@ -1622,13 +1618,13 @@ function VictoryAnim({
     });
 
     const badge = document.createElement('div');
-    badge.style.cssText = `position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) scale(0);background:#fbbf24;color:#1e293b;font-size:1.6rem;font-weight:800;padding:10px 22px;border-radius:18px;box-shadow:0 4px 28px rgba(251,191,36,0.55);white-space:nowrap;pointer-events:none`;
+    badge.style.cssText = `position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) scale(0);display:inline-flex;align-items:center;gap:8px;background:#fbbf24;color:#1e293b;font-size:1.6rem;font-weight:800;padding:10px 28px;border-radius:18px;box-shadow:0 4px 28px rgba(251,191,36,0.55);white-space:nowrap;pointer-events:none`;
     badge.textContent = `+${amount}`;
     const coin = document.createElement('img');
     coin.src = '/ui/coin.png';
     coin.alt = '';
     coin.draggable = false;
-    coin.style.cssText = 'height:1.15em;width:1.15em;object-fit:contain;vertical-align:-0.15em;margin-left:0.35rem';
+    coin.style.cssText = 'display:block;height:1.15em;width:1.15em;object-fit:contain;flex:none';
     badge.appendChild(coin);
     container.appendChild(badge);
 

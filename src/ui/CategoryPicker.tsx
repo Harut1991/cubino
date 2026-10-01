@@ -56,41 +56,41 @@ export function CategoryPicker<T extends { id: string }>({
       {/* Collapsed row — lives inside the parent menu */}
       <button
         onClick={() => setOpen(true)}
-        className="flex w-full items-center gap-3 rounded-xl bg-slate-800 px-4 py-3 text-left transition active:scale-[0.98]"
+        className="flex w-full items-center gap-3 rounded-xl border border-[#9E4B02]/70 bg-[#2A160C] px-4 py-3 text-left transition active:scale-[0.98]"
       >
         <div className="min-w-0 flex-1">
-          <div className="mb-1.5 text-sm font-medium text-slate-100">{label}</div>
+          <div className="mb-1.5 text-sm font-extrabold text-[#F9F2DD]">{label}</div>
           <div className="flex items-center gap-2">
             {/* h-10/w-10 = same size as the "sm" swatch (BgSwatch/TubeSwatch) used in the list
                 rows — a smaller slot cut the TubeSwatch (40×24px) in half. */}
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-slate-700/60 text-sm leading-none">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[#4A2C18] text-sm leading-none">
               {collapsedPreview(active)}
             </span>
-            <span className="truncate text-xs text-slate-400">
+            <span className="truncate text-xs font-semibold text-[#FFE14A]">
               {activeLabel(active)}
             </span>
           </div>
         </div>
-        <span className="shrink-0 text-slate-500">›</span>
+        <span className="shrink-0 font-extrabold text-[#E0A04A]">›</span>
       </button>
 
       {/* Child modal — centered, z-index above the parent menu, closes only itself */}
       {open && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-5 backdrop-blur-sm"
           style={{ paddingBottom: 'var(--ad-banner-offset, 0px)' }}
           onClick={() => setOpen(false)}
         >
           <div
-            className="flex max-h-[85dvh] w-full max-w-sm flex-col rounded-2xl bg-slate-900 shadow-2xl"
+            className="flex max-h-[85dvh] w-full max-w-xs flex-col rounded-2xl border-2 border-[#E0A04A] bg-[#3A2012] shadow-[0_16px_40px_rgba(59,10,0,0.55)]"
             onClick={e => e.stopPropagation()}
           >
             {/* Fixed header */}
-            <div className="flex shrink-0 items-center justify-between px-5 pt-5 pb-3">
-              <div className="text-base font-semibold text-slate-100">{modalTitle ?? label}</div>
+            <div className="flex shrink-0 items-center justify-between px-3.5 pt-3.5 pb-3">
+              <div className="text-base font-extrabold tracking-wide text-[#FFE14A] [text-shadow:0_2px_0_#3B0A00]">{modalTitle ?? label}</div>
               <button
                 onClick={() => setOpen(false)}
-                className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition active:scale-90"
+                className="flex h-8 w-8 items-center justify-center rounded-xl border border-[#E0A04A]/80 bg-[#2A160C] text-sm font-extrabold text-[#F9F2DD] transition active:scale-90"
               >
                 ✕
               </button>
@@ -98,7 +98,7 @@ export function CategoryPicker<T extends { id: string }>({
 
             {/* Fixed large preview (optional) */}
             {bigPreview && (
-              <div className="shrink-0 px-5 pb-3">
+              <div className="shrink-0 px-3.5 pb-3">
                 {bigPreview(active)}
               </div>
             )}
@@ -106,7 +106,7 @@ export function CategoryPicker<T extends { id: string }>({
             {/* Option list — the ONLY scroll area, no siblings competing for space.
                 pt-1.5: without it the ring of the 1st item (selected) touches the scroll edge and
                 looks clipped relative to the others. */}
-            <div className={`min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pt-1.5 ${footer ? 'pb-3' : 'pb-[max(1.25rem,env(safe-area-inset-bottom))]'}`}>
+            <div className={`min-h-0 flex-1 overflow-y-auto overscroll-contain px-3.5 pt-1.5 ${footer ? 'pb-3' : 'pb-[max(1rem,env(safe-area-inset-bottom))]'}`}>
               <div className="flex flex-col gap-1.5">
                 {items.map(item =>
                   renderRow(item, item.id === activeId, () => {
@@ -118,7 +118,7 @@ export function CategoryPicker<T extends { id: string }>({
 
             {/* Optional fixed footer (the Shop's buy/equip action) */}
             {footer && (
-              <div className="shrink-0 border-t border-slate-800 px-5 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+              <div className="shrink-0 border-t border-[#9E4B02]/60 px-3.5 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
                 {footer}
               </div>
             )}

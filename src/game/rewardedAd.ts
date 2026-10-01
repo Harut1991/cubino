@@ -3,8 +3,8 @@
  * Android reads the AdMob ids from .env: the rewarded unit for an extra tube, an undo,
  * and coins, and the interstitial unit between every third level.
  * iOS shows the AdMob banner and the interstitial between every third level.
- * The browser build uses AdSense for Games.
- * A reward is granted only after the video is watched.
+ * A release build in the browser uses AdSense for Games.
+ * Web, Android, and iOS development builds skip the ad and still grant the reward.
  */
 
 import { Capacitor } from '@capacitor/core';
@@ -15,8 +15,11 @@ const ANDROID_INTERSTITIAL_ID = import.meta.env.VITE_ADMOB_ANDROID_INTERSTITIAL_
 const IOS_BANNER_ID = import.meta.env.VITE_ADMOB_IOS_BANNER_ID ?? '';
 const IOS_INTERSTITIAL_ID = import.meta.env.VITE_ADMOB_IOS_INTERSTITIAL_ID ?? '';
 
-/** Real AdMob units load only from a production build (`vite build`). `npm run dev` never requests them. */
-const liveAds = import.meta.env.PROD;
+/** Release builds show ads. The web dev server, an Android debug app, and an iOS debug app do not. */
+function liveAds(): boolean {
+  if (import.meta.env.DEV || Capacitor.DEBUG) return false;
+  return true;
+}
 
 function isAndroidApp(): boolean {
   return Capacitor.getPlatform() === 'android';
@@ -44,7 +47,7 @@ let iosReady: Promise<boolean> | null = null;
 let iosBannerStarted = false;
 
 function ensureIosAds(): Promise<boolean> {
-  if (!liveAds || (!IOS_BANNER_ID && !IOS_INTERSTITIAL_ID)) return Promise.resolve(false);
+  if (!liveAds() || (!IOS_BANNER_ID && !IOS_INTERSTITIAL_ID)) return Promise.resolve(false);
   if (iosReady) return iosReady;
   iosReady = (async () => {
     try {
@@ -68,7 +71,7 @@ function ensureIosAds(): Promise<boolean> {
 }
 
 async function showIosBanner(): Promise<void> {
-  if (!liveAds || iosBannerStarted || !IOS_BANNER_ID) return;
+  if (!liveAds() || iosBannerStarted || !IOS_BANNER_ID) return;
   iosBannerStarted = true;
   if (!(await ensureIosAds())) {
     iosBannerStarted = false;
@@ -131,7 +134,7 @@ async function showNativeInterstitial(adId: string): Promise<void> {
 let androidReady: Promise<boolean> | null = null;
 
 function ensureAndroidAds(): Promise<boolean> {
-  if (!liveAds || (!ANDROID_REWARDED_ID && !ANDROID_INTERSTITIAL_ID)) return Promise.resolve(false);
+  if (!liveAds() || (!ANDROID_REWARDED_ID && !ANDROID_INTERSTITIAL_ID)) return Promise.resolve(false);
   if (androidReady) return androidReady;
   androidReady = (async () => {
     try {
@@ -161,7 +164,7 @@ async function showIosInterstitial(): Promise<void> {
 }
 
 async function showAndroidRewardedAd(): Promise<boolean> {
-  if (!liveAds || !ANDROID_REWARDED_ID || !(await ensureAndroidAds())) return false;
+  if (!liveAds() || !ANDROID_REWARDED_ID || !(await ensureAndroidAds())) return false;
   try {
     const { AdMob } = await import('@capacitor-community/admob');
     await AdMob.prepareRewardVideoAd({ adId: ANDROID_REWARDED_ID, isTesting: false });
@@ -186,7 +189,7 @@ let loading: Promise<void> | null = null;
 let scriptFailed = false;
 
 export function loadRewardedAds(): Promise<void> {
-  if (!liveAds) return Promise.resolve();
+  if (!liveAds()) return Promise.resolve();
   if (isAndroidApp()) return ensureAndroidAds().then(() => undefined);
   if (isIosApp()) {
     void showIosBanner();
@@ -220,9 +223,9 @@ export function loadRewardedAds(): Promise<void> {
   return loading;
 }
 
-/** Resolves true only when the player finished the rewarded video. */
+/** Resolves true when the player finished the video, or immediately in a development build. */
 export function showRewardedAd(): Promise<boolean> {
-  if (!liveAds) return Promise.resolve(false);
+  if (!liveAds()) return Promise.resolve(true);
   if (isAndroidApp()) return showAndroidRewardedAd();
   if (isIosApp()) return Promise.resolve(false);
   return loadRewardedAds().then(() => new Promise((resolve) => {
@@ -257,7 +260,7 @@ export function showRewardedAd(): Promise<boolean> {
 
 /** Short ad between levels. Continues when the ad closes or if none is available. */
 export function showShortAd(): Promise<void> {
-  if (!liveAds) return Promise.resolve();
+  if (!liveAds()) return Promise.resolve();
   if (isAndroidApp()) return showAndroidInterstitial();
   if (isIosApp()) return showIosInterstitial();
   return loadRewardedAds().then(() => new Promise((resolve) => {

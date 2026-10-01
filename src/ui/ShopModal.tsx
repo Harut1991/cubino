@@ -56,7 +56,7 @@ export function ShopModal({ wallet, onBuyOrEquip, onPreview, onWatchAd, onClose 
       <button
         onClick={handleBuy}
         disabled={!canAffordPreview}
-        className="w-full rounded-xl bg-teal-400 py-3 text-base font-semibold text-slate-900 transition active:scale-95 disabled:opacity-40"
+        className="w-full rounded-xl bg-[#3C9A32] py-3 text-base font-extrabold text-[#F9F2DD] shadow-[inset_0_-3px_0_#14520E] [text-shadow:0_1px_0_#003500] transition active:scale-95 disabled:opacity-40"
       >
         <span className="inline-flex items-center justify-center gap-1.5">
           <CoinIcon className="h-4 w-4" />
@@ -152,7 +152,7 @@ export function ShopModal({ wallet, onBuyOrEquip, onPreview, onWatchAd, onClose 
             <button
               onClick={handleBuy}
               disabled={!canAffordPreview}
-              className="w-full rounded-xl bg-teal-400 py-3 text-base font-semibold text-slate-900 transition active:scale-95 disabled:opacity-40"
+              className="w-full rounded-xl bg-[#3C9A32] py-3 text-base font-extrabold text-[#F9F2DD] shadow-[inset_0_-3px_0_#14520E] [text-shadow:0_1px_0_#003500] transition active:scale-95 disabled:opacity-40"
             >
               <span className="inline-flex items-center justify-center gap-1.5">
                 <CoinIcon className="h-4 w-4" />
@@ -195,24 +195,24 @@ function ItemRow({
   return (
     <button
       onClick={onClick}
-      className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition active:scale-95 ${
+      className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition active:scale-95 ${
         isEquipped
-          ? 'bg-teal-400/15 ring-1 ring-teal-400/50'
+          ? 'bg-[#3C9A32] shadow-[inset_0_-3px_0_#14520E]'
           : isPreviewing
-            ? 'bg-sky-400/10 ring-1 ring-sky-400/40'
-            : 'bg-slate-700/60 hover:bg-slate-700'
+            ? 'bg-[#4A2C18] ring-2 ring-[#E0A04A]'
+            : 'bg-[#4A2C18]'
       } ${!isOwned && !canAfford && !isPreviewing ? 'opacity-50' : ''}`}
     >
       <div className="shrink-0">{preview}</div>
       <div className="min-w-0 flex-1">
-        <div className="truncate text-base font-medium text-slate-100">{name}</div>
-        <div className={`flex items-center gap-1 text-sm ${isPreviewing ? 'text-sky-400' : 'text-slate-400'}`}>
+        <div className={`truncate text-sm font-extrabold ${isEquipped ? 'text-[#F9F2DD] [text-shadow:0_1px_0_#003500]' : 'text-[#F9F2DD]'}`}>{name}</div>
+        <div className={`mt-0.5 flex items-center gap-1 text-xs font-semibold ${isEquipped ? 'text-[#F9F2DD]/90' : 'text-[#E0A04A]'}`}>
           {showCoin && <CoinIcon className="h-3.5 w-3.5" />}
           <span>{label}</span>
         </div>
       </div>
-      {isEquipped && <span className="shrink-0 text-sm font-semibold text-teal-400">✓</span>}
-      {isPreviewing && <span className="shrink-0 text-sm text-sky-400">◉</span>}
+      {isEquipped && <span className="shrink-0 text-sm font-extrabold text-[#F9F2DD]">✓</span>}
+      {isPreviewing && <span className="shrink-0 text-sm font-extrabold text-[#FFE14A]">◉</span>}
     </button>
   );
 }

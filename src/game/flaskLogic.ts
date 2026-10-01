@@ -1,9 +1,7 @@
 /**
- * For each board size, in this order:
- * 1. Every column is only +.
- * 2. Some columns are only +, the others are only ×.
- * 3. One column mixes + and × between its cubes. Later combinations move those signs around.
- * A column needs at least 3 cubes before it can hold both signs.
+ * Short columns come first and use only + or only ×, because one gap cannot hold both.
+ * Taller columns, the ones that show up in medium, hard, and very hard, mix + and ×
+ * inside most columns. A column needs at least 3 cubes before it can hold both signs.
  */
 
 interface BoardSize {
@@ -63,53 +61,40 @@ function splitLayouts(columns: number, gaps: number): string[] {
   return layouts.slice(0, 3);
 }
 
-/** One column contains both signs. `kind` picks where the × sits. */
-function mixedColumn(gaps: number, kind: number): string {
-  const signs = Array.from({ length: gaps }, () => '+');
-  if (kind % 4 === 0) {
-    for (let i = 1; i < gaps; i += 2) signs[i] = '*';
-  } else if (kind % 4 === 1) {
-    for (let i = 0; i < gaps; i += 2) signs[i] = '*';
-  } else if (kind % 4 === 2) {
-    signs[gaps - 1] = '*';
-  } else {
-    signs[0] = '*';
+/** Every way to place both + and × in one column. */
+function mixedSigns(gaps: number): string[] {
+  const signs: string[] = [];
+  const total = 1 << gaps;
+  for (let mask = 1; mask < total - 1; mask++) {
+    let column = '';
+    for (let gap = 0; gap < gaps; gap++) column += mask & (1 << gap) ? '*' : '+';
+    signs.push(column);
   }
-  if (!signs.includes('+')) signs[signs.length - 1] = '+';
-  if (!signs.includes('*')) signs[0] = '*';
-  return signs.join('');
+  return signs;
 }
 
-function mixedLayouts(columns: number, gaps: number): string[] {
-  const plus = columnOf(gaps, '+');
+/** Most columns on the board contain both signs, and neighbors do not share one pattern. */
+function combinationLayouts(columns: number, gaps: number): string[] {
+  const signs = mixedSigns(gaps);
   const seen = new Set<string>();
   const layouts: string[] = [];
-  const add = (columnsSigns: string[]) => {
-    const pattern = columnsSigns.join('|');
+  const add = (row: string[]) => {
+    if (signs.length > 1 && new Set(row).size === 1) return;
+    const pattern = row.join('|');
     if (seen.has(pattern)) return;
-    const mixed = columnsSigns.some((column) => column.includes('+') && column.includes('*'));
-    if (!mixed) return;
+    const mixed = row.filter((column) => column.includes('+') && column.includes('*')).length;
+    if (mixed < Math.ceil(columns * 0.75)) return;
     seen.add(pattern);
     layouts.push(pattern);
   };
-  for (let kind = 0; kind < 4; kind++) {
-    const row = Array.from({ length: columns }, () => plus);
-    row[0] = mixedColumn(gaps, kind);
+  for (let variant = 0; layouts.length < 10 && variant < 120; variant++) {
+    const row = Array.from({ length: columns }, (_, index) => {
+      const pick = (index * (3 + (variant % 5)) + variant * 7 + index * variant) % signs.length;
+      return signs[pick];
+    });
     add(row);
   }
-  if (columns >= 2) {
-    const pair = Array.from({ length: columns }, () => plus);
-    pair[0] = mixedColumn(gaps, 0);
-    pair[1] = mixedColumn(gaps, 1);
-    add(pair);
-    const ends = Array.from({ length: columns }, () => plus);
-    ends[0] = mixedColumn(gaps, 2);
-    ends[columns - 1] = mixedColumn(gaps, 3);
-    add(ends);
-  }
-  const shifted = Array.from({ length: columns }, (_, index) => mixedColumn(gaps, index));
-  add(shifted);
-  return layouts.slice(0, 4);
+  return layouts;
 }
 
 interface BuiltLevel {
@@ -120,13 +105,22 @@ interface BuiltLevel {
 
 function buildLevels(): BuiltLevel[] {
   const patterns: string[] = [];
-  for (const { columns, cubes } of SIZES) {
+  const short = SIZES.filter((size) => size.cubes < 3);
+  const tall = SIZES.filter((size) => size.cubes >= 3);
+  for (const { columns, cubes } of short) {
     const gaps = cubes - 1;
     patterns.push(allPlus(columns, gaps));
     patterns.push(...splitLayouts(columns, gaps));
-    if (cubes >= 3) patterns.push(...mixedLayouts(columns, gaps));
   }
-  return patterns.map((pattern, index) => {
+  for (const { columns, cubes } of tall) {
+    const gaps = cubes - 1;
+    if (columns === 3 && cubes === 3) {
+      patterns.push(allPlus(columns, gaps));
+      patterns.push(...splitLayouts(columns, gaps).slice(0, 1));
+    }
+    patterns.push(...combinationLayouts(columns, gaps));
+  }
+  const base = patterns.map((pattern, index) => {
     const slice = Math.min(15, Math.floor((index / patterns.length) * 16));
     return {
       pattern,
@@ -134,6 +128,13 @@ function buildLevels(): BuiltLevel[] {
       size: (slice % 4) as 0 | 1 | 2 | 3,
     };
   });
+  const pool = base.filter((level) => level.mechanic === 1 || level.mechanic === 2);
+  const extra: BuiltLevel[] = [];
+  for (let i = 0; i < 100; i++) {
+    const source = pool[i % pool.length];
+    extra.push({ pattern: source.pattern, mechanic: 3, size: source.size });
+  }
+  return [...base, ...extra];
 }
 
 const LEVELS = buildLevels();
@@ -165,30 +166,30 @@ function parseLevel(pattern: string): CubeOp[][] {
   return columns;
 }
 
+/** Top to bottom. × is done before +, so 2+1×2+3+1×1 is 8 and 2+3×5×2+1+2×2 is 37. */
 export function columnValue(col: number[], ballCount: number, ops: CubeOp[]): number {
   if (!col.length) return 0;
-  let value = col[0];
   const gap = ballCount - col.length;
+  let total = 0;
+  let product = col[0];
   for (let i = 1; i < col.length; i++) {
     const op = ops[gap + i - 1] ?? 'sum';
-    value = op === 'mul' ? value * col[i] : value + col[i];
+    if (op === 'mul') product *= col[i];
+    else {
+      total += product;
+      product = col[i];
+    }
   }
-  return value;
+  return total + product;
 }
 
 function fillColumn(ops: CubeOp[], tier: number): number[] {
   const max = tier === 0 ? 5 : tier === 1 ? 6 : 7;
+  const roll = (min: number) => min + Math.floor(Math.random() * (max - min + 1));
   const numbers: number[] = [];
-  let value = 1 + Math.floor(Math.random() * Math.min(4, max));
-  numbers.push(value);
-  for (const op of ops) {
-    let n = 1 + Math.floor(Math.random() * max);
-    if (op === 'mul') {
-      const room = Math.max(1, Math.floor(40 / Math.max(1, Math.abs(value))));
-      n = 1 + Math.floor(Math.random() * Math.min(3, room, max));
-    }
-    numbers.push(n);
-    value = op === 'mul' ? value * n : value + n;
+  for (let i = 0; i < ops.length + 1; i++) {
+    const touchesMul = ops[i] === 'mul' || ops[i - 1] === 'mul';
+    numbers.push(roll(touchesMul ? 2 : 1));
   }
   return numbers;
 }

@@ -1,6 +1,6 @@
 import type { LevelConfig } from '../core/generator';
 import { MODES, type JourneyMode } from './modes';
-import { sizeBandOf, tierOf } from './flaskLogic';
+import { tierOf } from './flaskLogic';
 
 /**
  * Progression in cycles of 6 phases (step 0-5), scaling per tier (floor(phase/6)).
@@ -72,9 +72,9 @@ export function diffKey(phase: number): DiffKey {
   return DIFF_KEYS[tierOf(phase + 1)];
 }
 
-/** Two statuses, such as Easy-Easy or Hard-Easy. First is the lesson, second is the board size. */
+/** One status, such as Easy or Hard. */
 export function diffLabel(phase: number, name: (key: DiffKey) => string): string {
-  return `${name(DIFF_KEYS[tierOf(phase + 1)])}-${name(DIFF_KEYS[sizeBandOf(phase + 1)])}`;
+  return name(DIFF_KEYS[tierOf(phase + 1)]);
 }
 
 export function starsFor(moves: number, optimalMoves: number): number {

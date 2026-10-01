@@ -134,6 +134,13 @@ export function saveWallet(w: Wallet): void {
   }
 }
 
+/** Cube levels pay 2 coins on level 1 and 10 coins on the last level. */
+export function coinsForLevel(level: number, levelCount: number): number {
+  const span = Math.max(1, levelCount - 1);
+  const place = Math.min(levelCount, Math.max(1, level)) - 1;
+  return Math.round(2 + (place / span) * 8);
+}
+
 /**
  * Coin reward for beating a phase.
  * Base + star bonus; using help reduces it, but NEVER below the floor (the "always earns" principle).

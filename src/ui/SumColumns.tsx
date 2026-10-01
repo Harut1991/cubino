@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent, type MutableRefObject } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent, type MutableRefObject, type PointerEvent } from 'react';
 import { boardSolved, canPlace, columnValue, dealLevel, moveTop, type CubeOp } from '../game/flaskLogic';
 
 type Flight = {
@@ -16,7 +16,41 @@ type Flight = {
 
 type Snapshot = { columns: number[][]; faces: number[][] };
 
+type DragCube = {
+  from: number;
+  value: number;
+  face: number;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  over: number | null;
+};
+
+type DragSession = {
+  from: number;
+  pointerId: number;
+  startX: number;
+  startY: number;
+  active: boolean;
+};
+
+function columnAt(x: number, y: number): number | null {
+  const nodes = document.querySelectorAll<HTMLElement>('[data-sum-col]');
+  for (const node of nodes) {
+    const box = node.getBoundingClientRect();
+    if (x >= box.left && x <= box.right && y >= box.top && y <= box.bottom) {
+      const index = Number(node.dataset.sumCol);
+      return Number.isNaN(index) ? null : index;
+    }
+  }
+  return null;
+}
+
 type Fit = { cube: number; gap: number; colGap: number; rowGap: number; top: number; bottom: number; rowSizes: number[] };
+
+const SUM_CREAM = '#F9F2DD';
+const SUM_GREEN = '#3DDC4A';
 
 const CUBE_FACES = [
   { src: '/cubes/yellow.png', ink: '#3b2508', darkInk: true },
@@ -39,6 +73,10 @@ function CubeFace({
   hidden,
   fontSize,
   onClick,
+  onPointerDown,
+  onPointerMove,
+  onPointerUp,
+  onPointerCancel,
 }: {
   value: number;
   face: number;
@@ -48,14 +86,22 @@ function CubeFace({
   hidden?: boolean;
   fontSize: number;
   onClick?: (event: MouseEvent) => void;
+  onPointerDown?: (event: PointerEvent<HTMLDivElement>) => void;
+  onPointerMove?: (event: PointerEvent<HTMLDivElement>) => void;
+  onPointerUp?: (event: PointerEvent<HTMLDivElement>) => void;
+  onPointerCancel?: (event: PointerEvent<HTMLDivElement>) => void;
 }) {
   const paint = CUBE_FACES[face] ?? CUBE_FACES[0];
   return (
     <div
       id={id}
       onClick={onClick}
-      className={`relative flex h-full w-full items-center justify-center font-black ${
-        interactive ? 'cursor-pointer' : 'pointer-events-none'
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerCancel}
+      className={`relative flex h-full w-full items-center justify-center font-black select-none ${
+        interactive ? 'cursor-grab touch-none active:cursor-grabbing' : 'pointer-events-none'
       }`}
       style={{
         visibility: hidden ? 'hidden' : 'visible',
@@ -135,6 +181,7 @@ function fitBoard(totalCols: number, cubeRows: number): Fit {
 
 export function SumColumns({
   level,
+  resetKey,
   undoRef,
   addColumnRef,
   onMove,
@@ -144,6 +191,8 @@ export function SumColumns({
 }: {
   /** 0-based round from the shell. The flask game's levels start at 1. */
   level: number;
+  /** Bumps when Restart should put the opening cubes back. */
+  resetKey: number;
   undoRef: MutableRefObject<(() => void) | null>;
   addColumnRef: MutableRefObject<(() => boolean) | null>;
   onMove: () => void;
@@ -153,8 +202,10 @@ export function SumColumns({
 }) {
   const gameLevel = level + 1;
   const dealt = useRef(dealLevel(gameLevel));
-  const [columns, setColumns] = useState<number[][]>(() => dealt.current.columns.map((col) => [...col]));
-  const [faces, setFaces] = useState<number[][]>(() => paintColumns(dealt.current.columns));
+  const openingColumns = useRef(dealt.current.columns.map((col) => [...col]));
+  const openingFaces = useRef(paintColumns(dealt.current.columns));
+  const [columns, setColumns] = useState<number[][]>(() => openingColumns.current.map((col) => [...col]));
+  const [faces, setFaces] = useState<number[][]>(() => openingFaces.current.map((col) => [...col]));
   const [targets] = useState<number[]>(() => [...dealt.current.targets]);
   const [ops] = useState<CubeOp[][]>(() => dealt.current.ops.map((column) => [...column]));
   const [flaskCount] = useState(() => dealt.current.flaskCount);
@@ -162,6 +213,11 @@ export function SumColumns({
   const [selected, setSelected] = useState<number | null>(null);
   const [history, setHistory] = useState<Snapshot[]>([]);
   const [flight, setFlight] = useState<Flight | null>(null);
+  const [drag, setDrag] = useState<DragCube | null>(null);
+  const dragSessionRef = useRef<DragSession | null>(null);
+  const dragRef = useRef<DragCube | null>(null);
+  const suppressClickRef = useRef(false);
+  const solveAfterDropRef = useRef(false);
   const columnsRef = useRef(columns);
   const solvedRef = useRef(false);
   columnsRef.current = columns;
@@ -177,6 +233,21 @@ export function SumColumns({
   useEffect(() => {
     onExtraReady(2);
   }, [onExtraReady]);
+
+  useEffect(() => {
+    if (resetKey === 0) return;
+    setColumns(openingColumns.current.map((col) => [...col]));
+    setFaces(openingFaces.current.map((col) => [...col]));
+    setSelected(null);
+    setHistory([]);
+    setFlight(null);
+    setDrag(null);
+    dragRef.current = null;
+    dragSessionRef.current = null;
+    suppressClickRef.current = false;
+    solveAfterDropRef.current = false;
+    solvedRef.current = false;
+  }, [resetKey]);
 
   useEffect(() => {
     onCanUndo(history.length > 0 && !flight);
@@ -233,7 +304,7 @@ export function SumColumns({
     return () => window.clearTimeout(timer);
   }, [flight?.run]);
 
-  const place = (from: number, to: number) => {
+  const place = (from: number, to: number, instant = false) => {
     if (flight || !canPlace(columns[to] ?? [], ballCount)) return;
     const source = columns[from];
     if (!source?.length) return;
@@ -241,9 +312,10 @@ export function SumColumns({
     const face = faces[from]?.[0] ?? 0;
     const cubeEl = document.getElementById(`sum-top-${from}`);
     const landEl = document.getElementById(`sum-land-${to}`);
-    if (!cubeEl || !landEl) return;
-    const fromBox = cubeEl.getBoundingClientRect();
-    const landBox = landEl.getBoundingClientRect();
+    if (!instant && (!cubeEl || !landEl)) return;
+    const fromBox = cubeEl?.getBoundingClientRect();
+    const landBox = landEl?.getBoundingClientRect();
+    if (!instant && (!fromBox || !landBox)) return;
     const next = moveTop(columns, from, to, ballCount);
     if (!next) return;
     setHistory((stack) => [...stack, {
@@ -261,15 +333,19 @@ export function SumColumns({
     });
     setSelected(null);
     onMove();
+    if (instant) {
+      solveAfterDropRef.current = true;
+      return;
+    }
     setFlight({
       value,
       face,
-      x: fromBox.left,
-      y: fromBox.top,
-      w: fromBox.width,
-      h: fromBox.height,
-      dx: landBox.left - fromBox.left,
-      dy: landBox.top - fromBox.top,
+      x: fromBox!.left,
+      y: fromBox!.top,
+      w: fromBox!.width,
+      h: fromBox!.height,
+      dx: landBox!.left - fromBox!.left,
+      dy: landBox!.top - fromBox!.top,
       run: false,
       to,
     });
@@ -280,8 +356,21 @@ export function SumColumns({
     });
   };
 
+  useEffect(() => {
+    if (!solveAfterDropRef.current || flight) return;
+    solveAfterDropRef.current = false;
+    if (!solvedRef.current && boardSolved(columns, targets, flaskCount, ballCount, ops)) {
+      solvedRef.current = true;
+      onSolved();
+    }
+  }, [columns, flight, targets, flaskCount, ballCount, ops, onSolved]);
+
   const onColumn = (index: number) => {
-    if (flight) return;
+    if (suppressClickRef.current) {
+      suppressClickRef.current = false;
+      return;
+    }
+    if (flight || dragRef.current) return;
     if (selected == null) {
       if (!columns[index]?.length) return;
       setSelected(index);
@@ -293,6 +382,82 @@ export function SumColumns({
     }
     if (!canPlace(columns[index] ?? [], ballCount)) return;
     place(selected, index);
+  };
+
+  const ghostBox = (cube: DragCube) => ({
+    x: cube.x - cube.w / 2,
+    y: cube.y - cube.h / 2,
+    w: cube.w,
+    h: cube.h,
+  });
+
+  const columnUnderCube = (cube: DragCube) => {
+    const box = ghostBox(cube);
+    return columnAt(box.x + box.w / 2, box.y + box.h / 2);
+  };
+
+  const onCubePointerDown = (index: number, event: PointerEvent<HTMLDivElement>) => {
+    if (flight || event.button !== 0 || !columns[index]?.length) return;
+    dragSessionRef.current = {
+      from: index,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      active: false,
+    };
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch {
+      // A pointer that is already gone cannot be captured. The drag still follows later moves.
+    }
+  };
+
+  const onCubePointerMove = (event: PointerEvent<HTMLDivElement>) => {
+    const session = dragSessionRef.current;
+    if (!session || session.pointerId !== event.pointerId) return;
+    const dx = event.clientX - session.startX;
+    const dy = event.clientY - session.startY;
+    if (!session.active) {
+      if (dx * dx + dy * dy < 64) return;
+      session.active = true;
+      const box = document.getElementById(`sum-top-${session.from}`)?.getBoundingClientRect();
+      const next: DragCube = {
+        from: session.from,
+        value: columns[session.from][0],
+        face: faces[session.from]?.[0] ?? 0,
+        x: event.clientX,
+        y: event.clientY,
+        w: box?.width ?? fit.cube,
+        h: box?.height ?? fit.cube,
+        over: null,
+      };
+      next.over = columnUnderCube(next);
+      setSelected(null);
+      dragRef.current = next;
+      setDrag(next);
+      return;
+    }
+    const current = dragRef.current;
+    if (!current) return;
+    const moved = { ...current, x: event.clientX, y: event.clientY, over: null };
+    moved.over = columnUnderCube(moved);
+    dragRef.current = moved;
+    setDrag(moved);
+  };
+
+  const finishDrag = (event: PointerEvent<HTMLDivElement>, drop: boolean) => {
+    const session = dragSessionRef.current;
+    if (!session || session.pointerId !== event.pointerId) return;
+    dragSessionRef.current = null;
+    if (!session.active) return;
+    suppressClickRef.current = true;
+    const current = dragRef.current;
+    const over = current ? columnUnderCube({ ...current, x: event.clientX, y: event.clientY }) : null;
+    dragRef.current = null;
+    setDrag(null);
+    if (drop && current && over != null && over !== current.from && canPlace(columns[over] ?? [], ballCount)) {
+      place(current.from, over, true);
+    }
   };
 
   const badgeH = Math.round((fit.cube + 14) * (24 / 72));
@@ -318,16 +483,25 @@ export function SumColumns({
           const columnOps = ops[index];
           const now = columnOps ? columnValue(col, ballCount, columnOps) : col.reduce((sum, n) => sum + n, 0);
           const full = col.length >= ballCount;
+          const done = full && target != null && now === target;
+          const sumSymbols = `${now}${target != null ? `/${target}` : ''}`.length;
+          const sumFont = Math.max(11, Math.round(badgeH * 0.5) + 2) - (sumSymbols > 5 ? (sumSymbols - 5) * 2 : 0);
           const slots: (number | null)[] = [
             ...Array.from({ length: ballCount - col.length }, () => null),
             ...col,
           ];
           return (
-            <div key={index} className="flex shrink-0 flex-col items-center" style={{ width: fit.cube + 14 }}>
+            <div key={index} data-sum-col={index} className="flex shrink-0 flex-col items-center" style={{ width: fit.cube + 14 }}>
               <div
                 onClick={() => onColumn(index)}
-                className={`flex w-full flex-col rounded-md border border-transparent bg-slate-900/45 px-1.5 py-2 ${
-                  full && selected != null && selected !== index ? 'opacity-60' : ''
+                className={`flex w-full flex-col rounded-md border px-1.5 py-2 ${
+                  done
+                    ? 'border-[#3DDC4A] bg-[#1B6B28]/75 shadow-[0_0_14px_rgba(61,220,74,0.45)]'
+                    : 'border-transparent bg-slate-900/45'
+                } ${
+                  full && ((selected != null && selected !== index) || (drag != null && drag.from !== index)) ? 'opacity-60' : ''
+                } ${
+                  drag && drag.over === index && drag.from !== index && !full ? 'ring-2 ring-amber-200' : ''
                 }`}
                 style={{ gap: fit.gap }}
               >
@@ -354,9 +528,21 @@ export function SumColumns({
                           face={faces[index]?.[slot - (ballCount - col.length)] ?? 0}
                           selected={isTop && selected === index}
                           interactive={isTop}
-                          hidden={hidden}
+                          hidden={hidden || (isTop && drag?.from === index)}
                           fontSize={Math.max(11, Math.round(fit.cube * 0.42))}
-                          onClick={isTop ? (event) => { event.stopPropagation(); onColumn(index); } : undefined}
+                          onClick={isTop ? (event) => {
+                            if (suppressClickRef.current) {
+                              suppressClickRef.current = false;
+                              event.stopPropagation();
+                              return;
+                            }
+                            event.stopPropagation();
+                            onColumn(index);
+                          } : undefined}
+                          onPointerDown={isTop ? (event) => onCubePointerDown(index, event) : undefined}
+                          onPointerMove={isTop ? onCubePointerMove : undefined}
+                          onPointerUp={isTop ? (event) => finishDrag(event, true) : undefined}
+                          onPointerCancel={isTop ? (event) => finishDrag(event, false) : undefined}
                         />
                       )}
                       {columnOps && col.length > 0 && slot < ballCount - 1 && (
@@ -374,8 +560,8 @@ export function SumColumns({
               <div className="relative mt-1 w-full" style={{ height: badgeH }}>
                 <img src="/ui/sum.svg" alt="" draggable={false} className="pointer-events-none absolute inset-0 h-full w-full select-none" />
                 <span
-                  className="pointer-events-none absolute inset-0 flex items-center justify-center font-extrabold leading-none text-[#F9F2DD] [text-shadow:0_1px_0_#3B0A00]"
-                  style={{ fontSize: Math.max(11, Math.round(badgeH * 0.5) + 2) }}
+                  className="pointer-events-none absolute inset-0 flex items-center justify-center whitespace-nowrap px-1.5 font-extrabold leading-none [text-shadow:0_1px_0_#3B0A00]"
+                  style={{ fontSize: Math.max(8, sumFont), color: done ? SUM_GREEN : SUM_CREAM }}
                 >
                   {target != null ? `${now}/${target}` : now}
                 </span>
@@ -386,6 +572,19 @@ export function SumColumns({
           </div>
         ))}
       </div>
+      {drag && (
+        <div
+          className="pointer-events-none fixed z-20"
+          style={{
+            left: drag.x - drag.w / 2,
+            top: drag.y - drag.h / 2,
+            width: drag.w,
+            height: drag.h,
+          }}
+        >
+          <CubeFace value={drag.value} face={drag.face} selected fontSize={Math.max(11, Math.round(drag.h * 0.42))} />
+        </div>
+      )}
       {flight && (
         <div
           className="pointer-events-none fixed z-20"
