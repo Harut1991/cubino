@@ -7,6 +7,7 @@ import { resetAllData } from '../game/settings';
 import { useT, useLanguage } from '../i18n/context';
 import { LANG_NAMES, LANG_FLAGS, type Lang } from '../i18n/types';
 import { AudioControls } from './AudioControls';
+import { openPrivacyPolicy } from '../lib/privacyPolicy';
 
 const LANG_ORDER: Lang[] = ['pt-BR', 'en', 'es'];
 
@@ -96,6 +97,14 @@ export function AjustesModal({ onClose }: Props) {
               <div className="mb-2 text-sm font-extrabold tracking-wide text-[#FFE14A] [text-shadow:0_1px_0_#3B0A00]">{t.sound.title}</div>
               <AudioControls />
             </div>
+
+            <button
+              type="button"
+              onClick={openPrivacyPolicy}
+              className="mt-3 w-full rounded-xl border border-[#E0A04A]/70 bg-[#2A160C] py-2.5 text-sm font-extrabold text-[#F9F2DD] transition active:scale-95"
+            >
+              {t.ajustes.privacyPolicy}
+            </button>
 
             <div className="mt-3 rounded-xl border border-[#E02323]/70 bg-[#2A160C] px-4 py-3">
               <div className="mb-2 text-sm font-extrabold tracking-wide text-[#FF5A5A] [text-shadow:0_1px_0_#5A0000]">{t.ajustes.zonaDePerigo}</div>

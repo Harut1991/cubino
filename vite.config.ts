@@ -4,7 +4,7 @@ import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
 // Base path: '/' for local dev, or a sub-path for a project deploy (GitHub Pages serves a project
-// site under /<repo>/). The deploy pipeline sets DEPLOY_BASE=/decanta-water-sort/. The manifest,
+// site under /<repo>/). The deploy pipeline sets DEPLOY_BASE=/cubino/. The manifest,
 // icons, navigate fallback and runtime asset URLs (see asset() in audio/engine.ts) all derive from
 // it, so the app works both locally and under a sub-path.
 const base = process.env.DEPLOY_BASE || '/';

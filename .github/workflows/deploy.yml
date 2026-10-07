@@ -31,7 +31,7 @@ jobs:
       # Build under the project sub-path so asset/manifest/SW URLs resolve on Pages.
       - run: npm run build
         env:
-          DEPLOY_BASE: /decanta-water-sort/
+          DEPLOY_BASE: /cubino/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

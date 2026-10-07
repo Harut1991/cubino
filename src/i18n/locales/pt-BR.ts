@@ -98,6 +98,7 @@ export const ptBR: Dictionary = {
     maisDetalhes: 'Mais detalhes',
     maisFluido: 'Mais fluido',
     idioma: 'Idioma',
+    privacyPolicy: 'Política de privacidade',
     zonaDePerigo: 'Zona de perigo',
     apagarTodosOsDados: 'Apagar todos os dados',
     apagando: 'Apagando…',

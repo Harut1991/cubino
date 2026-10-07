@@ -104,6 +104,7 @@ export interface Dictionary {
     maisDetalhes: string;
     maisFluido: string;
     idioma: string;
+    privacyPolicy: string;
     zonaDePerigo: string;
     apagarTodosOsDados: string;
     apagando: string;

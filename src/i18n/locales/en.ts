@@ -96,6 +96,7 @@ export const en: Dictionary = {
     maisDetalhes: 'More detail',
     maisFluido: 'Smoother',
     idioma: 'Language',
+    privacyPolicy: 'Privacy policy',
     zonaDePerigo: 'Danger zone',
     apagarTodosOsDados: 'Delete all data',
     apagando: 'Deleting…',

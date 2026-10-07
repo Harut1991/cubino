@@ -31,3 +31,7 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+
+# Release artifacts
+*.aab
+*.apk

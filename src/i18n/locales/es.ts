@@ -96,6 +96,7 @@ export const es: Dictionary = {
     maisDetalhes: 'Más detalle',
     maisFluido: 'Más fluido',
     idioma: 'Idioma',
+    privacyPolicy: 'Política de privacidad',
     zonaDePerigo: 'Zona de peligro',
     apagarTodosOsDados: 'Borrar todos los datos',
     apagando: 'Borrando…',
